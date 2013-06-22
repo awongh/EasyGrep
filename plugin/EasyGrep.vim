@@ -333,7 +333,7 @@ let s:SortOptions = [ "Name", "Name Reversed", "Extension", "Extension Reversed"
 let s:SortFunctions = [ "SortName", "SortNameReversed", "SortExtension", "SortExtensionReversed" ]
 let s:SortChoice = 0
 
-let s:Commands = [ "vimgrep", "grep" ]
+let s:Commands = [ "grep", "vimgrep" ]
 let s:CommandChoice = 0
 let s:LastSeenGrepprg = &grepprg
 function! s:InitializeCommandChoice()
@@ -406,6 +406,15 @@ function! s:GetPatternList(sp, addAdditionalLocations)
         let filesToGrep = s:AddAdditionalLocationsToList(str, sp)
     else
         let filesToGrep = str
+    endif
+
+    if g:EasyGrepAddVimrcFiles
+
+      " do we need another case where we are formatting this for another kind
+      " of grep
+
+      " do we encapsulate this as a function?
+      let filesToGrep .= " " . join( map( split( g:EasyGrepVimrcFiles, ':'), 'v:val."/gems/\**"'), ' ')
     endif
 
     let filesToGrep = s:Trim(filesToGrep)
@@ -2289,23 +2298,19 @@ function! s:GetGrepCommandLine(word, add, whole, count, escapeArgs)
         endif
 
         let opts .= " " . join(map(split(filesToExclude, ','), '"--exclude=\"".v:val."\""." --exclude-dir=\"".v:val."\""'), ' ')
+
     elseif commandIsAck
         " Patch up the command line in a way that ack understands
         " 1) Replace a leading star with the current directory
         
-        " not sure what to do here
-        " add some more dirs??
-        " below we are only formatting it for ack, but.... 
-        " we have it set to ack and it's not getting here?!?
-        if g:EasyGrepAddVimrcFiles
-        endif
 
-        let filesToGrep = substitute(filesToGrep, "^\*", getcdw(), "")
+        let filesToGrep = substitute(filesToGrep, "^\*", getcwd(), "")
         " 2) Replace all trailing stars with a space
         let filesToGrep = substitute(filesToGrep, '/\*', "", "g")
 
         " Add exclusions
         let opts .= " " . join(map(split(filesToExclude, ','), '"--ignore-dir=\"".v:val."\""'), ' ')
+
     endif
 
     if commandIsAck || commandIsFindstr
@@ -2316,15 +2321,11 @@ function! s:GetGrepCommandLine(word, add, whole, count, escapeArgs)
         let filesToGrep=s:ForwardToBackSlash(filesToGrep)
     endif
 
-    if g:EasyGrepAddVimrcFiles
-      " do we encapsulate this as a function?
-      let filesToGrep .= " " . join( map( split( g:EasyGrepVimrcFiles, ':'), 'v:val."/\*"'), ' ')
-    endif
-
     let win = g:EasyGrepWindow != 0 ? "l" : ""
     let grepCommand = a:count.win.com.a:add." ".opts." ".s1.word.s2." ".filesToGrep
 
-    call s:Echo( grepCommand )
+call s:Echo( grepCommand )
+sleep 5
 
     return grepCommand
 endfunction
