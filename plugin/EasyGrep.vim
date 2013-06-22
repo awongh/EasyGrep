@@ -733,6 +733,7 @@ endfunction
 function! <sid>EchoOptionsSet()
 
     let optList = [
+            \ "g:EasyGrepAddVimrcFiles",
             \ "g:EasyGrepFileAssociations",
             \ "g:EasyGrepMode",
             \ "g:EasyGrepCommand",
@@ -999,6 +1000,24 @@ function! <sid>ToggleCommand()
         endif
     endif
 endfunction
+" }}}
+" ToggleVimrcFiles {{{
+
+function! <sid>ToggleVimrcFiles()
+
+    if strlen( g:EasyGrepVimrcFiles ) < 0
+        call s:Warning("Please set EasyGrepVimrcFiles in your vimrc.")
+        return
+    endif
+
+    let g:EasyGrepAddVimrcFiles = !g:EasyGrepAddVimrcFiles
+
+    call s:BuildListOfFilesToGrep()
+    call s:RefreshAllOptions()
+
+    call s:Echo("Set vimrc files mode to (".s:OnOrOff(g:EasyGrepAddVimrcFiles).")")
+endfunction
+
 " }}}
 " ToggleRecursion {{{
 function! <sid>ToggleRecursion()
@@ -1286,6 +1305,8 @@ function! s:CreateOptionMappings()
     exe "nmap <silent> ".p."v  :call <sid>EchoGrepCommand()<cr>"
     exe "nmap <silent> ".p."\\|  :call <sid>EchoOptionsSet()<cr>"
     exe "nmap <silent> ".p."*  :call <sid>ToggleFileAssociationsInExplorer()<cr>"
+
+    exe "nmap <silent> ".p."f  :call <sid>ToggleVimrcFiles()<cr>"
 endfunction
 "}}}
 " GrepOptions {{{
@@ -1300,6 +1321,8 @@ endfunction
 function! s:CreateOptionsString()
 
     let s:Options = []
+
+    call add(s:Options, "\"f: include vimrc files/dir include (".s:OnOrOff(g:EasyGrepAddVimrcFiles).")")
 
     call add(s:Options, "\"q: quit")
     call add(s:Options, "\"r: recursive mode (".s:OnOrOff(g:EasyGrepRecursive).")")
@@ -1371,6 +1394,8 @@ function! s:MapOptionsKeys()
     nnoremap <buffer> <silent> v    :call <sid>EchoGrepCommand()<cr>
     nnoremap <buffer> <silent> \|   :call <sid>EchoOptionsSet()<cr>
     nnoremap <buffer> <silent> ?    :call <sid>ToggleOptionsDisplay()<cr>
+
+    nnoremap <buffer> <silent> f    :call <sid>ToggleVimrcFiles()<cr>
 
 endfunction
 "}}}
@@ -2253,6 +2278,12 @@ function! s:GetGrepCommandLine(word, add, whole, count, escapeArgs)
             else
                 let dirs = [ getcwd() ]
             endif
+
+            if g:EasyGrepAddVimrcFiles
+              " what should we do here? it's not ack, but we are including
+              " different dirs
+            endif
+
             " the files we specify will be directories
             let filesToGrep = join(dirs, ' ')
         endif
@@ -2261,7 +2292,15 @@ function! s:GetGrepCommandLine(word, add, whole, count, escapeArgs)
     elseif commandIsAck
         " Patch up the command line in a way that ack understands
         " 1) Replace a leading star with the current directory
-        let filesToGrep = substitute(filesToGrep, "^\*", getcwd(), "")
+        
+        " not sure what to do here
+        " add some more dirs??
+        " below we are only formatting it for ack, but.... 
+        " we have it set to ack and it's not getting here?!?
+        if g:EasyGrepAddVimrcFiles
+        endif
+
+        let filesToGrep = substitute(filesToGrep, "^\*", getcdw(), "")
         " 2) Replace all trailing stars with a space
         let filesToGrep = substitute(filesToGrep, '/\*', "", "g")
 
@@ -2277,8 +2316,15 @@ function! s:GetGrepCommandLine(word, add, whole, count, escapeArgs)
         let filesToGrep=s:ForwardToBackSlash(filesToGrep)
     endif
 
+    if g:EasyGrepAddVimrcFiles
+      " do we encapsulate this as a function?
+      let filesToGrep .= " " . join( map( split( g:EasyGrepVimrcFiles, ':'), 'v:val."/\*"'), ' ')
+    endif
+
     let win = g:EasyGrepWindow != 0 ? "l" : ""
     let grepCommand = a:count.win.com.a:add." ".opts." ".s1.word.s2." ".filesToGrep
+
+    call s:Echo( grepCommand )
 
     return grepCommand
 endfunction
@@ -2432,6 +2478,7 @@ function! s:WarnNoMatches(pattern)
     redraw
     call s:Warning("No matches for '".a:pattern."'")
     call s:Warning("File Pattern: ".fpat.r.h)
+    call s:Warning("Command: ".s:EchoGrepCommand() )
 
     let dirs = s:GetDirectorySearchList()
     let s = "Directories:"
@@ -3053,6 +3100,12 @@ function! s:InitializeMode()
         endif
     endif
 endfunction
+
+
+" other files code
+if !exists("g:EasyGrepAddVimrcFiles")
+    let g:EasyGrepAddVimrcFiles=1
+endif
 
 if !exists("g:EasyGrepCommand")
     let g:EasyGrepCommand=0
